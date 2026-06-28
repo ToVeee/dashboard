@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>eReklamo Admin Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; }
+        body { background: #f4f6f9; color: #333; display: flex; min-height: 100vh; }
+        
+        /* Sidebar Styles */
+        .sidebar { width: 260px; background: #800000; color: white; padding: 20px; }
+        .sidebar h2 { text-align: center; margin-bottom: 30px; font-size: 24px; letter-spacing: 1px; }
+        .sidebar ul { list-style: none; }
+        .sidebar ul li { padding: 12px 15px; margin-bottom: 10px; background: rgba(255,255,255,0.1); border-radius: 6px; cursor: pointer; transition: 0.3s; }
+        .sidebar ul li:hover { background: rgba(255,255,255,0.25); }
+
+        /* Main Content Container */
+        .main-content { flex: 1; padding: 30px; overflow-y: auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 2px solid #ddd; padding-bottom: 15px; }
+        .header h1 { color: #800000; }
+
+        /* Metrics Grid */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .stat-card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); border-left: 5px solid #800000; text-align: center; }
+        .stat-card h3 { font-size: 14px; color: #666; text-transform: uppercase; margin-bottom: 5px; }
+        .stat-card p { font-size: 28px; font-weight: bold; color: #800000; }
+
+        /* Complaint Table Styles */
+        .table-container { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .table-container h2 { margin-bottom: 15px; color: #444; }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th, td { padding: 14px; border-bottom: 1px solid #eee; }
+        th { background: #f8f9fa; color: #555; font-weight: bold; }
+        tr:hover { background: #f9f9f9; }
+
+        /* Dynamic Tags & Scores */
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+        .badge-anon { background: #e2e8f0; color: #4a5568; }
+        .badge-severity { background: #fed7d7; color: #9b2c2c; }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h2>🏫 eReklamo</h2>
+        <ul>
+            <li>📋 Overview Dashboard</li>
+            <li>📥 Inbox Complaints</li>
+            <li>⚙️ Settings</li>
+        </ul>
+    </div>
+
+    <div class="main-content">
+        <div class="header">
+            <h1>Overview Dashboard</h1>
+            <div id="live-indicator" style="color: #38a169; font-weight: bold;">● System Live & Listening</div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>Total Complaints</h3>
+                <p id="total-count">0</p>
+            </div>
+            <div class="stat-card" style="border-left-color: #dd6b20;">
+                <h3>High Priority Cases</h3>
+                <p id="high-priority-count">0</p>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <h2>Recent Submissions</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Student Name</th>
+                        <th>Section</th>
+                        <th>Complaint Summary</th>
+                        <th>Score Priority</th>
+                    </tr>
+                </thead>
+                <tbody id="complaint-rows">
+                    <tr id="no-data-row">
+                        <td colspan="5" style="text-align: center; color: #888; padding: 30px;">No complaints received yet. Waiting for form submissions...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+   <!-- 1. FIXED: Changed local path to a global CDN link so GitHub Pages can load Socket.io -->
+   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+
+    <script>
+        // 2. FIXED: Explicitly link Socket.io to your live Render server address
+        // Paste your actual Render web service URL below!
+        const RENDER_URL = "https://rekserver.onrender.com"; 
+        const socket = io(RENDER_URL);
+
+        // Store received items locally in memory
+        let localComplaints = [];
+
+        // Core logic to inject data into the user interface
+        function addComplaintToDashboard(complaint) {
+            const noDataRow = document.getElementById('no-data-row');
+            if (noDataRow) noDataRow.remove();
+
+            localComplaints.push(complaint);
+
+            // Update stats layout counters
+            document.getElementById('total-count').innerText = localComplaints.length;
+            const highPriority = localComplaints.filter(c => c.score >= 30).length;
+            document.getElementById('high-priority-count').innerText = highPriority;
+
+            // Generate HTML structure row
+            const tbody = document.getElementById('complaint-rows');
+            const row = tbody.insertRow(0); // Insert newest at the very top
+
+            row.innerHTML = `
+                <td>${complaint.date || new Date().toLocaleDateString()}</td>
+                <td>${complaint.isAnonymous ? '<span class="badge badge-anon">Anonymous</span>' : (complaint.name || 'Student')}</td>
+                <td>${complaint.section || 'N/A'}</td>
+                <td><strong>${complaint.text || complaint.complaintText}</strong></td>
+                <td><span class="badge badge-severity">${complaint.score || 0} pts</span></td>
+            `;
+        }
+
+        // --- REAL COMM LINK: Catch the data sent from rekserver.js ---
+        socket.on('newComplaint', (data) => {
+            console.log("Received data package:", data);
+            addComplaintToDashboard(data);
+        });
+
+        // Connection status indicators for debugging
+        socket.on('connect', () => {
+            document.getElementById('live-indicator').innerHTML = "● System Live & Listening";
+            document.getElementById('live-indicator').style.color = "#38a169";
+        });
+
+        socket.on('disconnect', () => {
+            document.getElementById('live-indicator').innerHTML = "○ Disconnected from Server";
+            document.getElementById('live-indicator').style.color = "#e53e3e";
+        });
+    </script>
+</body>
+</html>

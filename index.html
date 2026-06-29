@@ -121,64 +121,82 @@
         </div>
     </div>
 
-    <script>
-        // Connect to your live Render server
-        const socket = io('https://rekserver.onrender.com');
+   <script>
+    // Connect to your live Render server
+    const socket = io('https://rekserver.onrender.com');
+    
+    const statusBadge = document.getElementById('status');
+    const complaintList = document.getElementById('complaintList');
+
+    // Monitor connection status visually
+    socket.on('connect', () => {
+        statusBadge.innerText = "🟢 Connected (Live)";
+        statusBadge.className = "status-badge";
+        console.log("Connected to WebSocket tunnel successfully.");
+    });
+
+    socket.on('disconnect', () => {
+        statusBadge.innerText = "🔴 Disconnected";
+        statusBadge.className = "status-badge disconnected";
+    });
+
+    // --- REUSABLE FUNCTION TO DISPLAY A CARD ---
+    function renderComplaintCard(data) {
+        // Remove the "No complaints yet" text on the first incoming item
+        const noDataMessage = document.querySelector('.no-data');
+        if (noDataMessage) {
+            noDataMessage.remove();
+        }
+
+        // Determine border severity class based on score
+        let severityClass = 'severity-low';
+        if (data.score >= 25 && data.score < 40) {
+            severityClass = 'severity-medium';
+        } else if (data.score >= 40) {
+            severityClass = 'severity-high';
+        }
+
+        // Construct new HTML payload card dynamically
+        const card = document.createElement('div');
+        card.className = `complaint-card ${severityClass}`;
+
+        card.innerHTML = `
+            <div class="card-header">
+                <span class="card-name">${data.isAnonymous ? '🕵️ Anonymous Student' : '👤 ' + data.name}</span>
+                <span>📅 ${data.date}</span>
+            </div>
+            <div class="card-body">
+                <p>${data.text || "<em>No written details provided.</em>"}</p>
+            </div>
+            <div class="card-footer">
+                <span><strong>Section:</strong> ${data.section || 'N/A'}</span>
+                <span class="score-tag">Severity Score: ${data.score}</span>
+            </div>
+        `;
+
+        // Insert new complaints at the absolute top of the live dashboard feed
+        complaintList.insertBefore(card, complaintList.firstChild);
+    }
+
+    // 1. Catch the live broadcast event emitted from your Node.js app
+    socket.on('newComplaint', (data) => {
+        console.log("Received live broadcast data:", data);
+        renderComplaintCard(data);
+    });
+
+    // 2. NEW: Catch the database history array loaded immediately when opening the page
+    socket.on('complaintHistory', (historyArray) => {
+        console.log("Received database history:", historyArray);
         
-        const statusBadge = document.getElementById('status');
-        const complaintList = document.getElementById('complaintList');
-
-        // Monitor connection status visually
-        socket.on('connect', () => {
-            statusBadge.innerText = "🟢 Connected (Live)";
-            statusBadge.className = "status-badge";
-            console.log("Connected to WebSocket tunnel successfully.");
+        // Clear old list if any placeholders exist
+        complaintList.innerHTML = '';
+        
+        // The array is sorted newest-to-oldest, so we loop backwards (.reverse()) 
+        // because .insertBefore() automatically shoves the entries to the top!
+        historyArray.reverse().forEach(complaint => {
+            renderComplaintCard(complaint);
         });
-
-        socket.on('disconnect', () => {
-            statusBadge.innerText = "🔴 Disconnected";
-            statusBadge.className = "status-badge disconnected";
-        });
-
-        // Catch the live broadcast event emitted from your Node.js app
-        socket.on('newComplaint', (data) => {
-            console.log("Received live broadcast data:", data);
-
-            // Remove the "No complaints yet" text on the first incoming item
-            const noDataMessage = document.querySelector('.no-data');
-            if (noDataMessage) {
-                noDataMessage.remove();
-            }
-
-            // Determine border severity class based on score
-            let severityClass = 'severity-low';
-            if (data.score >= 25 && data.score < 40) {
-                severityClass = 'severity-medium';
-            } else if (data.score >= 40) {
-                severityClass = 'severity-high';
-            }
-
-            // Construct new HTML payload card dynamically
-            const card = document.createElement('div');
-            card.className = `complaint-card ${severityClass}`;
-
-            card.innerHTML = `
-                <div class="card-header">
-                    <span class="card-name">${data.isAnonymous ? '🕵️ Anonymous Student' : '👤 ' + data.name}</span>
-                    <span>📅 ${data.date}</span>
-                </div>
-                <div class="card-body">
-                    <p>${data.text || "<em>No written details provided.</em>"}</p>
-                </div>
-                <div class="card-footer">
-                    <span><strong>Section:</strong> ${data.section || 'N/A'}</span>
-                    <span class="score-tag">Severity Score: ${data.score}</span>
-                </div>
-            `;
-
-            // Insert new complaints at the absolute top of the live dashboard feed
-            complaintList.insertBefore(card, complaintList.firstChild);
-        });
-    </script>
+    });
+</script>
 </body>
 </html>

@@ -134,9 +134,7 @@
             border-radius: 8px;
         }
 
-        .details{
-          display:none;
-        }
+     
     </style>
 </head>
 
@@ -226,7 +224,7 @@
         <div class="card-body">
             <p><strong>Tracking ID:</strong> ${complaintId}</p>
 <p><strong>Category:</strong> ${data.category}</p>
-          <button onclick="showDetails()" class="show:>Show details:</button>  <p class="details">${data.text || "<em>No written details provided.</em>"}</p>
+          <p class="details">${data.text || "<em>No written details provided.</em>"}</p>
         </div>
 
         <div class="card-footer">

@@ -216,7 +216,7 @@
             card.innerHTML = `
         <div class="card-header">
             <span class="card-name">
-                ${data.isAnonymous ? '🕵️ Anonymous Student' : '👤 ' + data.name}
+                ${data.isAnonymous ? '🕵️ Anonymous Student' : '👤 ' + data.name}  <span class="status"></span> 
             </span>
             <span>📅 ${data.date}</span>
         </div>
@@ -233,7 +233,28 @@
         </div>
     `;
 
-            
+            const statusRadios = card.querySelectorAll(`input[name="status-${complaintId}"]`);
+
+            statusRadios.forEach(radio => {
+                radio.addEventListener('change', () => {
+                    console.log("Sending:", complaintId, radio.value);
+
+                    socket.emit('updateStatus', {
+                        trackingId: complaintId,
+                        status: radio.value
+                    });
+                });
+            });
+
+            const statusElement = card.querySelector('.status');
+            if (data.status === 'Resolved') {
+                statusElement.innerHTML = '<span>🟢</span>';
+            } else if (data.status === 'Pending') {
+                statusElement.innerHTML = '<span>🟡</span>';
+            } else if (data.status === 'Rejected') {
+                statusElement.innerHTML = '<span>🔴</span>';
+            }
+           
             complaintList.insertBefore(card, complaintList.firstChild);
         }
        
